@@ -36,8 +36,7 @@ async function getAppStatus(req){
             );
         
             const cappingLimit = result.ipCap;
-            const totalIps = await ValidateIP.find( {ip: req.body.ip,appId : req.body.appId}).count();
-
+            const totalIps = await ValidateIP.find( {appId : req.body.appId}).count();
             if(existingIP){
               
                 if(existingIP.isActivated){
@@ -94,7 +93,6 @@ async function getAppStatus(req){
                 }
             }
             else{
-           
                 if(cappingLimit == 0 || totalIps < cappingLimit){
 
                     req.body.lastCall = new Date().toISOString();

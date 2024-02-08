@@ -7,28 +7,128 @@ const User = require('../model/users');
 const myFunctions = require('../func/app_status');
 
 
-router.post('/getAllUsers',(req,res,next) => {
-   
-    User.find()
-    .select('-__v')
-    .sort({createdData : -1})
-    .then(result => {
-        res.status(200).json({
-            status:true,
-            message: "Date get successfully",
-            records: result.length,
-            data:result
+router.post('/getAllUsers',async(req,res,next) => {
+
+    if (req.body.appId == undefined){
+        return res.status(300).json({   status:false, message: 'appId must be provided' });
+    } 
+    else if(!ObjectId.isValid(req.body.appId)){
+        return res.status(300).json({   status:false, message: 'appId must be ObjectId' });
+    }
+
+    
+    const  expectedKeys = ["appId"];
+    // Check for extra fields
+    const extraFields = Object.keys(req.body).filter(key => !expectedKeys.includes(key));
+
+
+    if (extraFields.length > 0) {
+        return res.status(300).json({
+            status:false,
+            msg: 'Invalid fields: ' + extraFields.join(', ') 
         });
-    }).catch(err=>{
+    }
+
+    try{
+        
+        User.find({appId: req.body.appId})
+        .select('-__v')
+        .sort({createdData : -1})
+        .then(result => {
+            res.status(200).json({
+                status:true,
+                message: "Date get successfully",
+                records: result.length,
+                data:result
+            });
+        }).catch(err=>{
+            res.status(500).json({
+                status:false,
+                message: "Faild to Fetch PlayStoreApps details",
+                error:err
+            });
+        });
+
+    }catch(e){
         res.status(500).json({
             status:false,
-            message: "Faild to Fetch PlayStoreApps details",
+            message: 'Something went wrong', 
             error:err
         });
-    });
+    }
+   
 
 });
 
+router.post('/getProfile',async(req,res,next) => {
+
+    if (req.body.appId == undefined){
+        return res.status(300).json({   status:false, message: 'appId must be provided' });
+    }
+    else if (req.body.ip == undefined){
+        return res.status(300).json({   status:false, message: 'ip must be provided' });
+    }
+    else if (req.body.registedId == undefined){
+        return res.status(300).json({   status:false, message: 'registedId must be provided' });
+    }
+    else if(!ObjectId.isValid(req.body.appId)){
+        return res.status(300).json({   status:false, message: 'appId must be ObjectId' });
+    } 
+    else if(typeof req.body.ip !== 'string'){
+        return res.status(300).json({   status:false, message: 'ip must be string' });
+    }
+    else if(!ObjectId.isValid(req.body.registedId)){
+        return res.status(300).json({   status:false, message: 'registedId must be ObjectId' });
+    }
+
+    
+    const  expectedKeys = ["ip","appId","registedId","mark"];
+    // Check for extra fields
+    const extraFields = Object.keys(req.body).filter(key => !expectedKeys.includes(key));
+
+
+    if (extraFields.length > 0) {
+        return res.status(300).json({
+            status:false,
+            msg: 'Invalid fields: ' + extraFields.join(', ') 
+        });
+    }
+
+    try{
+        let appStatus = await myFunctions.getAppStatus(req);
+        if(appStatus.length === 0){
+            User.findOne({appId: req.body.appId,ip: req.body.ip,_id: req.body.registedId})
+            .select('-__v -appId -ip -updatedData -createdData -_id -password')
+            .then(result => {
+                res.status(200).json({
+                    status:true,
+                    message: "Date get successfully",
+                    records: result.length,
+                    data:result
+                });
+            }).catch(err=>{
+                res.status(500).json({
+                    status:false,
+                    message: "Faild to Fetch PlayStoreApps details",
+                    error:err
+                });
+            });
+        }
+        else{
+            return res.status(300).json({   status:false, message: appStatus });
+        }
+       
+
+    }catch(e){
+        res.status(500).json({
+            status:false,
+            message: 'Something went wrong', 
+            error:err
+        });
+    }
+   
+
+});
 
 router.post('/register',async (req,res,next) => {
     
@@ -116,10 +216,11 @@ router.post('/register',async (req,res,next) => {
     try{
 
         let appStatus = await myFunctions.getAppStatus(req);
-        // console.log("---"+appStatus);
         if(appStatus.length === 0){
 
             const user = new User({
+                appId : req.body.appId,
+                ip : req.body.ip,
                 gmail : req.body.gmail,
                 firstName : req.body.firstName,
                 lastName : req.body.lastName,
@@ -135,12 +236,12 @@ router.post('/register',async (req,res,next) => {
                 dob : req.body.dob
           });
           
-         const existingUser = await  User.findOne({gmail : req.body.gmail});
+         const existingUser = await  User.findOne({appId: req.body.appId,gmail : req.body.gmail});
 
          if(existingUser){
             return res.status(400).json({
                 status:false,
-                message: 'User is already registerd.'
+                message: existingUser.gmail + ' is already registerd.'
             });
          }
          else{
@@ -148,7 +249,7 @@ router.post('/register',async (req,res,next) => {
                 result =>{
                 return res.status(200).json({
                     status:true,
-                    msg: result.gmail + " User Register Successfully",
+                    msg: result.gmail + " Register Successfully",
                     data:[
                       {
                           id: result._id
@@ -182,115 +283,85 @@ router.post('/register',async (req,res,next) => {
 
 });
 
-router.post('/updatePlayStoreApp111',async(req,res,next) => {
+router.post('/updateUser',async(req,res,next) => {
 
     if (req.body.appId == undefined){
         return res.status(300).json({   status:false, message: 'appId must be provided' });
     }
-    else if(!ObjectId.isValid(req.body.appId)){
-        return res.status(300).json({   status:false, message: 'appId must be Object' });
+    else if (req.body.ip == undefined){
+        return res.status(300).json({   status:false, message: 'ip must be provided' });
     }
-    else if (req.body.categoryType != undefined){
-        if(typeof req.body.categoryType !== 'string'){
-            return res.status(300).json({   status:false, message: 'categoryType must be string' });
+    else if (req.body.gmail == undefined){
+        return res.status(300).json({   status:false, message: 'gmail must be provided' });
+    }
+    else if(!ObjectId.isValid(req.body.appId)){
+        return res.status(300).json({   status:false, message: 'appId must be ObjectId' });
+    } 
+    else if(typeof req.body.ip !== 'string'){
+        return res.status(300).json({   status:false, message: 'ip must be string' });
+    }
+    else if(typeof req.body.gmail !== 'string'){
+        return res.status(300).json({   status:false, message: 'gmail must be string' });
+    }
+    if (req.body.firstName != undefined){
+        if(typeof req.body.firstName !== 'string'){
+            return res.status(300).json({   status:false, message: 'firstName must be string' });
         }
     } 
-    else if (req.body.deviceType != undefined){
-        if(typeof req.body.deviceType !== 'string'){
-            return res.status(300).json({   status:false, message: 'deviceType must be string' });
+    if (req.body.lastName != undefined){
+        if(typeof req.body.lastName !== 'string'){
+            return res.status(300).json({   status:false, message: 'lastName must be string' });
         }
     } 
-    else if (req.body.frontImage != undefined){
-        if(typeof req.body.frontImage !== 'string'){
-            return res.status(300).json({   status:false, message: 'frontImage must be string' });
+    if (req.body.userName != undefined){
+        if(typeof req.body.userName !== 'string'){
+            return res.status(300).json({   status:false, message: 'userName must be string' });
         }
     } 
-    else if (req.body.iconImage != undefined){
-        if(typeof req.body.iconImage !== 'string'){
-            return res.status(300).json({   status:false, message: 'iconImage must be string' });
+    if (req.body.phoneNo != undefined){
+        if(typeof req.body.phoneNo !== 'string'){
+            return res.status(300).json({   status:false, message: 'phoneNo must be string' });
         }
     } 
-    else if (req.body.title != undefined){
-        if(typeof req.body.title !== 'string'){
-            return res.status(300).json({   status:false, message: 'title must be string' });
+    if (req.body.gender != undefined){
+        if(typeof req.body.gender !== 'string'){
+            return res.status(300).json({   status:false, message: 'gender must be string' });
         }
     } 
-    else if (req.body.category != undefined){
-        if(typeof req.body.category !== 'string'){
-            return res.status(300).json({   status:false, message: 'category must be string' });
+    if (req.body.address != undefined){
+        if(typeof req.body.address !== 'string'){
+            return res.status(300).json({   status:false, message: 'address must be string' });
         }
     } 
-
+    if (req.body.city != undefined){
+        if(typeof req.body.city !== 'string'){
+            return res.status(300).json({   status:false, message: 'city must be string' });
+        }
+    } 
+    if (req.body.state != undefined){
+        if(typeof req.body.state !== 'string'){
+            return res.status(300).json({   status:false, message: 'state must be string' });
+        }
+    } 
+    if (req.body.country != undefined){
+        if(typeof req.body.country !== 'string'){
+            return res.status(300).json({   status:false, message: 'country must be string' });
+        }
+    } 
+    if (req.body.pin != undefined){
+        if(typeof req.body.pin !== 'string'){
+            return res.status(300).json({   status:false, message: 'pin must be string' });
+        }
+    } 
+    if (req.body.dob != undefined){
+        const dob = new Date(req.body.dob);
+        if (isNaN(dob.getTime())) {
+            return res.status(300).json({ status:false, message: 'dob must be a date' });
+        }    
+    } 
     
-    try{
-        
-        const appToUpdate = await PlayStoreApps.findById(req.body.appId);
-
-        if (!appToUpdate) {
-            return res.status(300).json({
-                status:false,
-                msg: 'Invalid appId'
-            });
-        }
-
-        
-
-         // Update only the non-null fields provided in the request body
-        for (const [key, value] of Object.entries(req.body)) {
-            if (value !== null) {
-                appToUpdate[key.replace(/:/g, '')] = value;
-            
-            }
-        }
-
-        appToUpdate.updatedData = new Date();
-
-        // Save the updated document
-        await appToUpdate.save().
-        then(
-            result =>{
-            res.status(200).json({
-                status:true,
-                message: "App updated successfully"
-            })
-            }
-        ).
-        catch(err => {
-            res.status(500).json({
-                status:false,
-                message: 'Failed to upade', 
-                error: err 
-            })
-        });
-
-
-    } catch (err) {
-        res.status(500).json({
-            status:false,
-            message: 'Something went wrong', 
-            error:err
-        });
-    }
-
-});
-
-router.post('/changeStatusPlayStoreApp1',async(req,res,next) => {
-
-    if (req.body.appId == undefined){
-        return res.status(300).json({   status:false, message: 'appId must be provided' });
-    }
-    if (req.body.status == undefined){
-        return res.status(300).json({   status:false, message: 'status must be provided' });
-    }
-    else if(!ObjectId.isValid(req.body.appId)){
-        return res.status(300).json({   status:false, message: 'appId must be Object' });
-    }
-    else if(typeof req.body.status !== 'number'){
-        return res.status(300).json({   status:false, message: 'status must be number' });
-    }
-
-
-    const  expectedKeys = ["appId","status"];
+    const  expectedKeys = ["ip","appId","gmail","firstName", "lastName", "userName", "phoneNo", "gender", "address", "city",
+     "state", "country", "pin", "dob","mark"];
     // Check for extra fields
     const extraFields = Object.keys(req.body).filter(key => !expectedKeys.includes(key));
 
@@ -298,65 +369,63 @@ router.post('/changeStatusPlayStoreApp1',async(req,res,next) => {
     if (extraFields.length > 0) {
         return res.status(300).json({
             status:false,
-            message: 'Invalid fields: ' + extraFields.join(', ') 
+            msg: 'Invalid fields: ' + extraFields.join(', ') 
         });
     }
+
     
     try{
-        const status = { status: req.body.status };
 
-        PlayStoreApps.findOneAndUpdate({ _id: req.body.appId }, { $set: status }, { new: true })
-        .then((result) => {
+        let appStatus = await myFunctions.getAppStatus(req);
+        if(appStatus.length === 0){
 
-            if (!result) {
-                // If the resource is not found, return a 200 status code with a message
-                return res.status(400).json({
-                    status: false,
-                    message: 'App not found', 
-                });
-              }
-
-              let activationMessage = "";
-
-              if(req.body.status == -1){
-                activationMessage = "App is deleted successfully";
-              }
-              else if(req.body.status == 0){
-                activationMessage = "App is send into draft successfully";
-              }
-              else if(req.body.status == 1){
-                activationMessage = "App is published successfully";
-              }
-
-             
-
-              if(activationMessage == ""){
-                
-                res.status(400).json({
+            const user = await User.findOne({
+                $and: [
+                  { appId: req.body.appId },
+                  { ip: req.body.ip },
+                  { gmail: req.body.gmail },
+                  // Add more conditions as needed
+                ]
+              });
+         
+            if (!user) {
+                return res.status(300).json({
                     status:false,
-                    message: "Invalid status",
-                    data : {
-                        "-1" : "App deleted",
-                        "0" : "App in draft",
-                        "1" : "App published"
-                    } 
+                    msg: 'Invalid user'
                 });
-              }
-
+            }        
+    
+             // Update only the non-null fields provided in the request body
+            for (const [key, value] of Object.entries(req.body)) {
+                if (value !== null) {
+                    user[key.replace(/:/g, '')] = value;
+                
+                }
+            }
+    
+            // Save the updated document
+            await user.save().
+            then(
+                result =>{
                 res.status(200).json({
                     status:true,
-                    message: activationMessage, 
-                });
-
+                    message: "user updated successfully"
+                })
+                }
+            ).
+            catch(err => {
+                res.status(500).json({
+                    status:false,
+                    message: 'Failed to upade user', 
+                    error: err 
+                })
+            });
+    
+        }
+        else{
+            return res.status(300).json({   status:false, message: appStatus });
+        }
         
-        })
-        .catch((err) => {
-          res.status(500).json({
-            status:false,
-            message: 'Failed to check app existence', 
-            error:err
-          });
-        });
 
     } catch (err) {
         res.status(500).json({
@@ -368,12 +437,25 @@ router.post('/changeStatusPlayStoreApp1',async(req,res,next) => {
 
 });
 
-
 router.post('/deleteAllUsers',(req,res,next) => {
+
+    
+    if (req.body.appId == undefined){
+        return res.status(300).json({   status:false, message: 'appId must be provided' });
+    } 
+    else if(!ObjectId.isValid(req.body.appId)){
+        return res.status(300).json({   status:false, message: 'appId must be ObjectId' });
+    }
+
+    
+    const expectedKeys = ["appId"];
+    // Check for extra fields
+    const extraFields = Object.keys(req.body).filter(key => !expectedKeys.includes(key));
+
        
     try{
 
-        User.deleteMany({})
+        User.deleteMany({appId: req.body.appId})
         .then((result) => {
 
             if (result.deletedCount > 0) {
@@ -386,7 +468,7 @@ router.post('/deleteAllUsers',(req,res,next) => {
               else{
                 res.status(400).json({
                     status: false,
-                    message: 'Ip not found',
+                    message: 'Delete unsuccessfully',
                 });
               }
         
@@ -409,6 +491,97 @@ router.post('/deleteAllUsers',(req,res,next) => {
     }
     
 });
+
+router.post('/login',async(req,res,next) => {
+
+    if (req.body.appId == undefined){
+        return res.status(300).json({   status:false, message: 'appId must be provided' });
+    }
+    else if (req.body.ip == undefined){
+        return res.status(300).json({   status:false, message: 'ip must be provided' });
+    }
+    else if (req.body.gmail == undefined){
+        return res.status(300).json({   status:false, message: 'gmail must be provided' });
+    }
+    else if (req.body.password == undefined){
+        return res.status(300).json({   status:false, message: 'password must be provided' });
+    }
+    else if(!ObjectId.isValid(req.body.appId)){
+        return res.status(300).json({   status:false, message: 'appId must be ObjectId' });
+    } 
+    else if(typeof req.body.ip !== 'string'){
+        return res.status(300).json({   status:false, message: 'ip must be string' });
+    }
+    else if(typeof req.body.gmail !== 'string'){
+        return res.status(300).json({   status:false, message: 'gmail must be string' });
+    }
+    else if(typeof req.body.password !== 'string'){
+        return res.status(300).json({   status:false, message: 'password must be string' });
+    }
+
+    
+    const  expectedKeys = ["ip","appId","gmail","mark","password"];
+    // Check for extra fields
+    const extraFields = Object.keys(req.body).filter(key => !expectedKeys.includes(key));
+
+
+    if (extraFields.length > 0) {
+        return res.status(300).json({
+            status:false,
+            msg: 'Invalid fields: ' + extraFields.join(', ') 
+        });
+    }
+
+    try{
+        let appStatus = await myFunctions.getAppStatus(req);
+        if(appStatus.length === 0){
+            User.findOne({appId: req.body.appId,ip: req.body.ip,gmail: req.body.gmail})
+            .select('password')
+            .then(result => {
+                if(result.password === req.body.password){
+                    //password match
+                    res.status(200).json({
+                        status:true,
+                        message: "Login Successfully",
+                        data: [
+                            {
+                                "id": result._id
+                            }
+                        ]
+                    });
+                }
+                else{
+                    // password not match
+                    res.status(200).json({
+                        status:true,
+                        message: "Login failed due to incorrect password. Please verify password again."
+                    });
+                }
+               
+            }).catch(err=>{
+                res.status(500).json({
+                    status:false,
+                    message: "Faild to Fetch PlayStoreApps details",
+                    error:err
+                });
+            });
+        }
+        else{
+            return res.status(300).json({   status:false, message: appStatus });
+        }
+       
+
+    }catch(e){
+        res.status(500).json({
+            status:false,
+            message: 'Something went wrong', 
+            error:err
+        });
+    }
+   
+
+});
+
 
 
 module.exports = router;

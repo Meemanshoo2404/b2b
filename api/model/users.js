@@ -3,6 +3,11 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
     appId: {
         type: String,
+        require: true
+    },
+    ip: {
+        type: String,
+        require: true
     },
     firstName: {
         type: String,

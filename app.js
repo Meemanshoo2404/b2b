@@ -9,6 +9,7 @@ const app = express();
 const PlayStoreAppsRoute = require('./api/routes/playstore_apps');
 const UserRoute = require('./api/routes/users');
 const ValidateIp = require('./api/routes/validate_ip');
+const OtpRoute = require('./api/routes/otp');
 
 
 
@@ -34,6 +35,7 @@ app.use(bodyParser.json());
 app.use('/api',PlayStoreAppsRoute);
 app.use('/api',UserRoute);
 app.use('/api',ValidateIp);
+app.use('/api',OtpRoute);
 
 
 

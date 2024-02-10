@@ -97,22 +97,24 @@ router.post('/getProfile',async(req,res,next) => {
     try{
         let appStatus = await myFunctions.getAppStatus(req);
         if(appStatus.length === 0){
-            User.findOne({appId: req.body.appId,ip: req.body.ip,_id: req.body.registedId})
-            .select('-__v -appId -ip -updatedData -createdData -_id -password')
-            .then(result => {
+            const existingUser = await User.findOne({appId: req.body.appId,ip: req.body.ip,_id: req.body.registedId})
+            .select('-__v -appId -ip -updatedData -createdData -_id -password');
+
+            if(existingUser){
                 res.status(200).json({
                     status:true,
                     message: "Date get successfully",
                     records: result.length,
                     data:result
                 });
-            }).catch(err=>{
+            }
+            else{
                 res.status(500).json({
                     status:false,
                     message: "Faild to Fetch PlayStoreApps details",
-                    error:err
+                    error:existingUser
                 });
-            });
+            }
         }
         else{
             return res.status(300).json({   status:false, message: appStatus });

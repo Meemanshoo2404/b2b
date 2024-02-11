@@ -10,6 +10,7 @@ const PlayStoreAppsRoute = require('./api/routes/playstore_apps');
 const UserRoute = require('./api/routes/users');
 const ValidateIp = require('./api/routes/validate_ip');
 const OtpRoute = require('./api/routes/otp');
+const TestMySql = require('./api/routes/test_mysql');
 
 
 
@@ -36,6 +37,7 @@ app.use('/api',PlayStoreAppsRoute);
 app.use('/api',UserRoute);
 app.use('/api',ValidateIp);
 app.use('/api',OtpRoute);
+app.use('/api',TestMySql);
 
 
 
